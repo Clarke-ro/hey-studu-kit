@@ -2,7 +2,7 @@
 
 ## What it is
 A phone-first study app (PWA) for one student: lessons with quizzes, a roadmap, submissions with feedback, an inbox, and chat.
-A small team of Grok Bots (Coach, Projects, Opportunities, News, Chat) posts to it and replies through push notifications.
+A small team of Grok Bots (Coach, Projects (optional), Opportunities, News, Chat) posts to it and replies through push notifications.
 It runs for free on Render + Neon. The **hey studu** setup bot deploys it for any student in any field.
 
 ## Start

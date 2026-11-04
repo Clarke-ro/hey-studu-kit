@@ -84,7 +84,8 @@ Then, in the bot shell: `unset DATABASE_URL RENDER_API_KEY STUDY_APP_PASSWORD GH
    `SUBMISSION_WEBHOOK_URL/KEY` too.
 
 Other bots (Coach, Projects, Opportunities, News) are ordinary scheduled routines that post with `box/post.sh <id>`.
-Point them at POSTING.md.
+Point them at POSTING.md. The default roster is Coach, Projects, Opportunities, News and Chat. **Projects is optional**:
+for a non-coding field, drop it from `bots` in kit.config.json (or `KIT_BOTS`) and don't create that bot.
 
 ## 6. Phone install
 Send the student the app URL (`cat ~/.hey-studu/url`) and the password they chose.
