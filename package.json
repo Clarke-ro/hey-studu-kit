@@ -1,0 +1,26 @@
+{
+  "name": "hey-studu-kit",
+  "version": "1.0.0",
+  "description": "Starter kit: a study PWA (lessons, quizzes, bot inbox, chat, push) on Render free + Neon free, run by Grok Bots",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "bash test/e2e.sh",
+    "test:setup": "bash test/setup.sh"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
+    "express": "^5.3.0",
+    "pg": "^8.23.1",
+    "web-push": "^3.6.7",
+    "ws": "^8.22.1"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=20 <23"
+  }
+}

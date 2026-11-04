@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "title": "EXAMPLE curriculum (replace me)",
+  "months": [
+    {
+      "id": "ex1", "title": "Month 1", "name": "Example: learning how to learn",
+      "color": "#6366f1", "icon": "🧭",
+      "units": [
+        { "id": "ex1-habits", "title": "Study habits", "icon": "📚",
+          "lessons": [
+            { "id": "ex-active-recall", "title": "Active recall: test yourself", "minutes": 15 },
+            { "id": "ex-plan-your-week", "title": "Plan your study week", "minutes": 20 }
+          ] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+node_modules/
+# secrets: never commit
+.env
+.env.*
+!.env.example
+.hey-studu/
+.post-token
+.vapid.json
+*.pem
+*.key
+# runtime / data (all data lives in Postgres)
+*.log
+.content-sync/
+uploads/
+submissions/

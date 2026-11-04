@@ -1,0 +1,18 @@
+{
+  "title": "hey studu",
+  "short_name": "study",
+  "student_name": "there",
+  "field": "your field",
+  "accent": "#4f46e5",
+  "timezone": "UTC",
+  "chat_bot": "chat",
+  "feedback_bot": "coach",
+  "bots": [
+    { "id": "coach",         "name": "Coach",         "color": "#6366f1", "about": "lessons, daily plan, submission feedback" },
+    { "id": "projects",      "name": "Projects",      "color": "#f97316", "about": "hands-on projects and reviews" },
+    { "id": "opportunities", "name": "Opportunities", "color": "#14b8a6", "about": "internships, scholarships, events, deadlines" },
+    { "id": "news",          "name": "News",          "color": "#3b82f6", "about": "short field news digests" },
+    { "id": "chat",          "name": "Chat",          "color": "#4f46e5", "about": "answers questions in the Chat tab" }
+  ],
+  "chat_suggestions": ["What should I study today?", "Explain today's lesson simply", "What deadlines are coming up?"]
+}

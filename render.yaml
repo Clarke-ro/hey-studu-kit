@@ -1,0 +1,51 @@
+# Render Blueprint (optional): one free web service. Data lives in Neon Postgres (DATABASE_URL).
+# The setup bot normally creates the service with scripts/setup/render-create.sh instead (no dashboard clicks).
+# Secrets are sync:false: Render asks for them once when the Blueprint is created; they are never in git.
+services:
+  - type: web
+    name: hey-studu
+    runtime: node
+    plan: free
+    region: oregon            # oregon | ohio | virginia | frankfurt | singapore: pick the one nearest the student
+    branch: main
+    buildCommand: npm ci --omit=dev
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=256     # free instance has 512 MB; app idles ~70-80 MB RSS
+      - key: TRUST_PROXY
+        value: cloudflare                   # client IP from CF-Connecting-IP (Render sits behind Cloudflare)
+      - key: HEALTHZ_DB_INTERVAL_S
+        value: "3600"                       # /healthz pings the DB at most hourly, so Neon can scale to zero
+      - key: UPLOADS_TOTAL_MB
+        value: "300"                        # cap on upload bytes stored in Postgres (Neon free = 0.5 GB)
+      # --- optional branding overrides (otherwise kit.config.json is used)
+      - key: KIT_TITLE
+        sync: false
+      - key: KIT_STUDENT_NAME
+        sync: false
+      - key: KIT_FIELD
+        sync: false
+      - key: KIT_TIMEZONE
+        sync: false
+      # --- secrets
+      - key: DATABASE_URL
+        sync: false
+      - key: POST_TOKEN
+        sync: false
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT                  # optional: mailto:you@example.com (defaults to the service URL)
+        sync: false
+      - key: CHAT_WEBHOOK_URL
+        sync: false
+      - key: CHAT_WEBHOOK_KEY
+        sync: false
