@@ -6,5 +6,5 @@
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")" && pwd)"; . "$DIR/study-env.sh"
 P="${1:?usage: api-get.sh /api/<path>}"; [[ "$P" == /* ]] || P="/$P"
-# GETs are safe to retry (covers a Render cold start returning 502/503)
-study_curl --fail-with-body --retry 4 --retry-delay 5 --retry-connrefused "$STUDY_URL$P"
+# GETs are safe to retry; study_curl retries connect failures / 502-504 for Render cold starts.
+study_curl --fail-with-body "$STUDY_URL$P"

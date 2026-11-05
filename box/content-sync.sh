@@ -30,7 +30,10 @@ pass() {
   local full="$1" remote tmp out code p h rh n=0 fail=0
   declare -A R=() L=()
   if [ "$full" = 1 ]; then
-    remote="$(study_curl --fail --retry 3 --retry-delay 5 --retry-connrefused "$STUDY_URL/api/content")" || { log "server list failed ($STUDY_URL)"; return 1; }
+    out="$(mktemp)"
+    code="$(study_curl_to "$out" "$STUDY_URL/api/content")" || code=000
+    if [ "$code" != 200 ]; then rm -f "$out"; log "server list failed ($STUDY_URL) HTTP $code"; return 1; fi
+    remote="$(cat "$out")"; rm -f "$out"
     while IFS=$'\t' read -r p rh; do [ -n "$p" ] && R["$p"]="$rh"; done < <(jq -r '.[] | [.path, .sha256] | @tsv' <<<"$remote")
   elif [ -f "$STATE" ]; then
     while IFS=$'\t' read -r p rh; do [ -n "$p" ] && R["$p"]="$rh"; done < "$STATE"
@@ -39,7 +42,7 @@ pass() {
   while read -r p; do
     h="$(sha256sum "$STUDY_CONTENT_DIR/$p" | cut -d' ' -f1)"; L["$p"]="$h"
     [ "${R[$p]:-}" = "$h" ] && continue
-    code="$(study_curl -o "$out" -w '%{http_code}' -X PUT "$STUDY_URL/api/content/$p" \
+    code="$(study_curl_to "$out" -X PUT "$STUDY_URL/api/content/$p" \
       -H 'Content-Type: text/plain; charset=utf-8' -H "X-Source-Mtime: $(date -u -r "$STUDY_CONTENT_DIR/$p" +%Y-%m-%dT%H:%M:%SZ)" \
       --data-binary @"$STUDY_CONTENT_DIR/$p")" || code=000
     if [ "$code" = 200 ]; then R["$p"]="$h"; n=$((n+1)); log "pushed $p ($(jq -r 'if .changed then "updated" else "unchanged" end' "$out"))"
@@ -47,7 +50,8 @@ pass() {
   done < <(local_files)
   if [ "$PRUNE" = 1 ]; then
     for p in "${!R[@]}"; do [ -n "${L[$p]:-}" ] && continue
-      if study_curl --fail -o /dev/null -X DELETE "$STUDY_URL/api/content/$p"; then log "pruned $p"; unset 'R[$p]'; else fail=$((fail+1)); fi
+      code="$(study_curl_to /dev/null -X DELETE "$STUDY_URL/api/content/$p")" || code=000
+      if [ "$code" = 200 ] || [ "$code" = 204 ]; then log "pruned $p"; unset 'R[$p]'; else fail=$((fail+1)); fi
     done
   fi
   rm -f "$out"

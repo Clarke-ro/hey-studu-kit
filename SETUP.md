@@ -67,6 +67,7 @@ Or step by step:
 | `set-password.sh` | `DATABASE_URL STUDY_APP_PASSWORD` | stores the scrypt hash and signs out all devices. The running app picks it up on the next login. |
 | `seed-content.sh [dir] [--force]` | optional `STUDY_CONTENT_DIR` | copies `examples/` into the content folder (default `/workspace/study`) unless it has content, or uses `dir` as is. Then it pushes everything once. |
 | `start-sync.sh` | optional `PM2_NAME PM2_SAVE=0` | runs `box/content-sync.sh --loop 60` under pm2 with a clean env (no inherited secrets in pm2's dump) |
+| `start-pinger.sh` | optional `PM2_PING_NAME PM2_SAVE=0` | runs `scripts/setup/ping-healthz.js` under pm2 with a clean env; GETs `/healthz` every 10 min, 24/7, so free Render stays awake |
 | `set-webhook.sh [--no-deploy]` | `RENDER_API_KEY CHAT_WEBHOOK_URL CHAT_WEBHOOK_KEY`, optional `SUBMISSION_WEBHOOK_URL/KEY` | sets the webhook vars and redeploys |
 | `push-test.sh [bot]` | none | posts a test message and fails if no phone received it |
 | `node scripts/setup/render.js status` | `RENDER_API_KEY` | service URL and latest deploy status |
@@ -101,8 +102,10 @@ not enabled yet (on iPhone, make sure the app was opened from the home screen ic
 
 ## 8. Free-tier caveats
 - **Render free sleeps after 15 min without traffic.** The next visit or bot call waits **30-60 s** while it wakes
-  (cold start). Push messages still arrive, because a bot's post wakes it. You get 750 free instance hours per month,
-  which is enough for one always-on app.
+  (cold start). `start-pinger.sh` (run by `deploy.sh`) GETs `/healthz` every 10 minutes, 24/7, to keep the app
+  awake. Box scripts also retry connect failures and HTTP 502/503/504 for ~90 s so a cold start does not drop a
+  notification. Free Render gives **750 shared instance hours/month**; 24/7 uses ~744, so keep other free Render
+  apps asleep (or on a different account) or you will run out mid-month.
 - **Neon free** scales to zero when idle (wake-up takes under a second) and holds 0.5 GB. Uploads are capped at
   `UPLOADS_TOTAL_MB` (300).
 - Free services have no persistent disk. Everything lives in Neon, so redeploys lose nothing.

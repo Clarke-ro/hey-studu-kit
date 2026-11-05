@@ -16,6 +16,6 @@ if [ -z "${BODY//[[:space:]]/}" ]; then echo "error: empty review" >&2; exit 1; 
 if [ -n "${NO_PUSH:-}" ]; then PUSH=false; else PUSH=true; fi
 JSON="$(jq -n --arg text "$BODY" --argjson push "$PUSH" --arg by "${BY:-}" '{text:$text, push:$push} + (if $by != "" then {by:$by} else {} end)')"
 OUT="$(mktemp)"; trap 'rm -f "$OUT"' EXIT
-CODE="$(study_curl -o "$OUT" -w '%{http_code}' -X POST "$STUDY_URL/api/submissions/$ID/feedback" \
+CODE="$(study_curl_to "$OUT" -X POST "$STUDY_URL/api/submissions/$ID/feedback" \
   -H 'Content-Type: application/json' --data-binary "$JSON")" || { echo "error: app not reachable" >&2; exit 1; }
 if [ "$CODE" = "201" ]; then [ -n "${VERBOSE:-}" ] && jq -c '{submission_id:.submission.id, lesson:.submission.lesson_id, push}' "$OUT" >&2; echo ok; else echo "error: HTTP $CODE $(jq -r '.error // empty' "$OUT" 2>/dev/null)" >&2; exit 1; fi
