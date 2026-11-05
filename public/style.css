@@ -562,3 +562,10 @@ body.kb-open .tray{display:none}
 .typing{animation:typing-in .18s ease-out}
 @keyframes typing-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.typing{animation:none}.dots i{animation-duration:2.4s}}
+
+/* Module test badge on path + lesson list */
+.test-badge{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:999px;font-size:.65rem;font-weight:800;letter-spacing:.02em;vertical-align:middle;background:color-mix(in srgb,var(--mc,var(--accent)) 18%,transparent);color:var(--mc,var(--accent));border:1px solid color-mix(in srgb,var(--mc,var(--accent)) 35%,transparent)}
+.node.test .n-face{outline:3px solid color-mix(in srgb,var(--mc,var(--accent)) 45%,transparent);outline-offset:2px}
+.l-row.test .lr-title .test-badge{margin-left:8px}
+.l-hero .test-badge{margin-left:0;margin-bottom:8px}
+.l-await{margin-top:10px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--fg2);font-size:.88rem}

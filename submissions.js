@@ -4,10 +4,11 @@
 // chat webhook) as {type:'submission', ...}; reviews come back via POST /api/submissions/:id/feedback (token)
 // and are shown under the submission on the lesson page. Bots list them with box/api-get.sh /api/submissions...
 const crypto = require('crypto');
-const { hookConfig, postHook, sameOrigin, viewActive } = require('./hook');
+const { hookConfig, postHook, sameOrigin } = require('./hook');
 const uploads = require('./uploads');
 const store = require('./store');
 const kit = require('./kit');
+const study = require('./study');
 
 const LESSON_RE = /^[a-z0-9-]+$/, SUB_RE = /^\d{8}-\d{6}-[a-f0-9]{4}$/;
 
@@ -79,25 +80,31 @@ module.exports = function mount(app, { authOk, pushPayload, plainText, clip }) {
     res.set('Cache-Control', 'no-store').json(s);
   });
 
-  // review from the feedback bot (token). Body {text, push?:false, by?}. Pushes unless the student is viewing that lesson.
+  // review from the feedback bot (token). Body {text, push?:false, by?, passed?:bool, score?:number}.
+  // Review pushes always send (unless push:false). No quiet_path — show even if the lesson is open.
   app.post('/api/submissions/:id/feedback', async (req, res) => {
     if (!authOk(req)) return res.status(401).json({ error: 'unauthorized' });
     const s = find(req.params.id); if (!s) return res.status(404).json({ error: `submission ${String(req.params.id).slice(0, 40)} not found` });
     const text = str(req.body && req.body.text, 40000).trim();
     if (!text) return res.status(400).json({ error: 'text is required' });
     const fb = { text, at: new Date().toISOString(), by: typeof req.body.by === 'string' ? req.body.by.slice(0, 40) : kit.feedbackName() };
+    const verdict = study.reviewVerdict(req.body || {}, text);
+    if (verdict !== null) fb.passed = verdict;
+    if (req.body && req.body.score != null && Number.isFinite(Number(req.body.score))) fb.score = Number(req.body.score);
     s.feedback = (s.feedback || []).concat(fb); s.status = 'reviewed'; s.reviewed_at = fb.at; delete s.error;
     await write(s);
+    let test = null;
+    try { test = await study.applyReviewProgress(s.lesson_id, { passed: fb.passed, coachScore: fb.score }); } catch (e) { console.error(e); }
     let push;
     if (req.body.push === false) push = { skipped: 'disabled', sent: 0 };
-    else if (viewActive('lesson:' + s.lesson_id)) push = { skipped: 'lesson-open', sent: 0 };
     else {
       try {
         const first = plainText(text.split('\n').find(l => l.trim()) || text);
-        push = await pushPayload(JSON.stringify({ title: `${fb.by}: feedback on ${clip(s.lesson_title, 60)}`, body: clip(first, 140), url: `/lessons/${s.lesson_id}#sub-${s.id}`, tag: `sub-${s.id}`, quiet_path: `/lessons/${s.lesson_id}` }));
+        // No quiet_path: review notifications always show, even with the lesson open.
+        push = await pushPayload(JSON.stringify({ title: `${fb.by}: feedback on ${clip(s.lesson_title, 60)}`, body: clip(first, 140), url: `/lessons/${s.lesson_id}#sub-${s.id}`, tag: `sub-${s.id}` }));
       } catch (e) { console.error(e); push = { error: true }; }
     }
-    res.status(201).json({ ok: true, submission: s, push });
+    res.status(201).json({ ok: true, submission: s, push, test });
   });
 
   app.delete('/api/submissions/:id', async (req, res) => {

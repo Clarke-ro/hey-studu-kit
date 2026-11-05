@@ -36,7 +36,7 @@ Only these names are synced. Anything else in the folder is ignored. See `exampl
 
 ## lessons/<id>.md
 
-Frontmatter `title`, `unit`, `minutes`, `xp` (default 20), then normal Markdown (headings, lists, tables,
+Frontmatter `title`, `unit`, `minutes`, `xp` (default 20); for Module tests also `type: test` and `pass_mark: 70`. Then normal Markdown (headings, lists, tables,
 callouts, code). Fenced code gets a label, copy button and highlighting for python, bash/sh, js/ts, powershell.
 
 Quiz: one ` ```quiz ` fence per question, with keys `question:`, optional `lang:` + `code: |` (indent 2 spaces),
@@ -46,6 +46,31 @@ Work box: a ` ```submit ` fence (keys `prompt:`, optional `placeholder:`) shows 
 textarea plus attachments (images and common text/code/pdf files, 10 MB each, 5 per submission). Each send
 becomes a submission in the app database and is posted to the submission webhook (or the chat webhook).
 The coach answers with `box/submission-feedback.sh <submission_id> -`. See POSTING.md.
+
+
+## Module tests (`type: test`)
+
+A **module** is a **unit** in `curriculum.json` (e.g. `m1-terminal`), not a whole month. Put one **Module test** as the **last lesson of each unit**. Until it is passed, the next unit stays locked on the path.
+
+Frontmatter:
+
+```yaml
+---
+title: Terminal basics — Module test
+unit: m1-terminal
+minutes: 90
+xp: 50
+type: test
+pass_mark: 70
+---
+```
+
+- `type: test` — **Module test** badge on the path and Lessons list.
+- `pass_mark:` — overall pass threshold (default 70). Coach decides pass/fail.
+
+Body: **Objective** = ` ```quiz ` blocks (≥ **3 per lesson in the unit**, ≥ **10** total; auto-scored; score shown, lesson not completed). **Practical** = one ` ```submit ` block graded by Coach (0–100).
+
+**Scoring:** overall = **40% objective + 60% practical**; pass if ≥ `pass_mark` (70). Complete only when Coach's review marks **passed** (`**Passed**` / `**Failed**`, or `PASSED=1|0` and optional `SCORE=<practical>` on `box/submission-feedback.sh`). XP on first pass. Do not invent test content here — Coach writes it; add the lesson id as the unit's last entry in `curriculum.json` when ready.
 
 ## XP and streak
 First completion: `xp` + 5 per correct quiz answer. Retakes only add xp for a better score.

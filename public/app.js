@@ -278,10 +278,11 @@ V.roadmap = () => {
         pts.push(off); ys.push(top + h - 46); top += h;
         const side = off > 0 ? 'left' : 'right';
         const inner = l.status === 'done' ? icon('tick') : l.status === 'current' ? icon('play') : (l.available ? `<b>${l.n}</b>` : icon('lock'));
-        html += `<div class="node-row${cur ? ' cur' : ''}"><a class="node ${l.status}${S.justDone === l.id ? ' pop' : ''}" href="/lessons/${l.id}" style="--x:${off}px" aria-label="Lesson ${l.n}: ${esc(l.title)}${l.status === 'locked' ? ' (locked)' : ''}">
-          ${l.status === 'current' ? '<span class="start-bubble">Start</span>' : ''}
+        const isTest = l.type === 'test';
+        html += `<div class="node-row${cur ? ' cur' : ''}"><a class="node ${l.status}${isTest ? ' test' : ''}${S.justDone === l.id ? ' pop' : ''}" href="/lessons/${l.id}" style="--x:${off}px" aria-label="${isTest ? 'Module test' : 'Lesson'} ${l.n}: ${esc(l.title)}${l.status === 'locked' ? ' (locked)' : ''}">
+          ${l.status === 'current' ? `<span class="start-bubble">${isTest ? 'Test' : 'Start'}</span>` : ''}
           <span class="n-face">${inner}</span>${l.status === 'done' ? `<span class="n-star">${icon('star')}</span>` : ''}
-          <span class="n-cap ${side}"><span class="n-num">${l.n}</span>${esc(l.title)}</span></a></div>`;
+          <span class="n-cap ${side}"><span class="n-num">${l.n}</span>${esc(l.title)}${isTest ? '<span class="test-badge">Module test</span>' : ''}</span></a></div>`;
       });
       // dotted trail behind the nodes
       let d = `M ${pts[0]} ${ys[0]}`;
@@ -302,8 +303,10 @@ V.lessons = () => {
       html += `<section class="l-unit-card"><div class="lu-head"><span>${esc(u.icon || '')} ${esc(u.title)}</span><em>${u.done}/${u.total}</em></div>`;
       for (const l of u.lessons) {
         const ic = l.status === 'done' ? icon('tick') : l.status === 'current' ? icon('play') : l.available ? `<b>${l.n}</b>` : icon('lock');
-        html += `<a class="l-row ${l.status}" href="/lessons/${l.id}" style="--mc:${m.color}"><span class="lr-ico">${ic}</span>
-          <span class="lr-main"><span class="lr-title">${esc(l.title)}</span><span class="lr-meta">Lesson ${l.n} · ${l.minutes} min${l.status === 'done' && l.completed_at ? ` · done ${esc(shortDateFmt.format(new Date(l.completed_at + 'T12:00:00Z')))}` : ''}${l.status === 'done' && l.total ? ` · ${l.score}/${l.total}` : ''}</span></span>
+        const isTest = l.type === 'test';
+        const quizMeta = (l.quiz_total != null) ? ` · quiz ${l.quiz_score}/${l.quiz_total}` : (l.status === 'done' && l.total ? ` · ${l.score}/${l.total}` : '');
+        html += `<a class="l-row ${l.status}${isTest ? ' test' : ''}" href="/lessons/${l.id}" style="--mc:${m.color}"><span class="lr-ico">${ic}</span>
+          <span class="lr-main"><span class="lr-title">${esc(l.title)}${isTest ? '<span class="test-badge">Module test</span>' : ''}</span><span class="lr-meta">${isTest ? 'Module test' : 'Lesson'} ${l.n} · ${l.minutes} min${l.status === 'done' && l.completed_at ? ` · done ${esc(shortDateFmt.format(new Date(l.completed_at + 'T12:00:00Z')))}` : ''}${quizMeta}</span></span>
           ${l.available ? '' : '<span class="soon-tag">soon</span>'}${icon('chev', 'lr-chev')}</a>`;
       }
       html += '</section>';
@@ -768,11 +771,15 @@ addEventListener('pageshow', presenceTick);
 // ---------- lesson reader + quiz ----------
 function lessonHead(L) {
   const u = L.unit;
+  const isTest = L.type === 'test';
+  const qAttempt = L.quiz_attempt;
+  const awaitReview = isTest && !L.completed && qAttempt;
   return `<div class="l-hero" style="--mc:${(u && u.color) || 'var(--accent)'}">
     ${u ? `<div class="l-crumb">${esc(u.month_title)} · ${esc(u.title)}</div>` : ''}
+    ${isTest ? '<span class="test-badge">Module test</span>' : ''}
     <h1 class="l-title">${esc(L.title)}</h1>
-    <div class="l-meta">${L.n ? `<span>${icon('book')}Lesson ${L.n}</span>` : ''}${L.minutes ? `<span>${icon('clock')}${L.minutes} min</span>` : ''}<span>${icon('bolt')}+${L.xp} XP</span>${L.quiz.length ? `<span>${icon('quiz')}${L.quiz.length} questions</span>` : ''}</div>
-    ${L.completed ? `<div class="l-done">${icon('tick')}Completed ${esc(keyDate(L.completed.date))}${L.completed.total ? ` · quiz ${L.completed.score}/${L.completed.total}` : ''}</div>` : L.status === 'locked' && L.available ? `<div class="l-ahead">${icon('lock')}Reading ahead: finish the current lesson first for the streak</div>` : ''}
+    <div class="l-meta">${L.n ? `<span>${icon('book')}${isTest ? 'Module test' : 'Lesson'} ${L.n}</span>` : ''}${L.minutes ? `<span>${icon('clock')}${L.minutes} min</span>` : ''}<span>${icon('bolt')}+${L.xp} XP</span>${L.quiz.length ? `<span>${icon('quiz')}${L.quiz.length} questions</span>` : ''}${isTest && L.pass_mark != null ? `<span>Pass mark ${L.pass_mark}%</span>` : ''}</div>
+    ${L.completed ? `<div class="l-done">${icon('tick')}${isTest ? 'Passed' : 'Completed'} ${esc(keyDate(L.completed.date))}${L.completed.total ? ` · quiz ${L.completed.score}/${L.completed.total}` : ''}</div>` : awaitReview ? `<div class="l-await">${icon('quiz')}Objective score ${qAttempt.score}/${qAttempt.total}. Submit the Practical below — Coach marks pass/fail.</div>` : L.status === 'locked' && L.available ? `<div class="l-ahead">${icon('lock')}Reading ahead: finish the current lesson first for the streak</div>` : ''}
   </div>`;
 }
 function renderLesson(L) {
@@ -785,9 +792,11 @@ function renderLesson(L) {
       <div class="tray"><a class="btn big" href="/roadmap">Back to roadmap</a></div>`;
   } else {
     html += `<div class="prose">${md(L.body)}</div>${L.submit ? submitBoxHtml(L) : ''}</article><div class="tray">`;
-    if (L.quiz.length) html += `<button class="btn big primary" id="quiz-start">${L.completed ? 'Retake quiz' : 'Start quiz'} · ${L.quiz.length} questions${icon('play')}</button>`;
-    else if (!L.completed) html += `<button class="btn big primary" id="quiz-complete">Complete lesson · +${L.xp} XP</button>`;
-    else html += L.next ? `<a class="btn big primary" href="/lessons/${L.next.id}">Next: ${esc(L.next.title)}</a>` : `<a class="btn big" href="/roadmap">Back to roadmap</a>`;
+    const isTest = L.type === 'test';
+    if (L.quiz.length) html += `<button class="btn big primary" id="quiz-start">${L.completed || L.quiz_attempt ? 'Retake quiz' : (isTest ? 'Start objective' : 'Start quiz')} · ${L.quiz.length} questions${icon('play')}</button>`;
+    else if (!L.completed && !isTest) html += `<button class="btn big primary" id="quiz-complete">Complete lesson · +${L.xp} XP</button>`;
+    else if (L.completed) html += L.next ? `<a class="btn big primary" href="/lessons/${L.next.id}">Next: ${esc(L.next.title)}</a>` : `<a class="btn big" href="/roadmap">Back to roadmap</a>`;
+    else if (isTest) html += `<a class="btn big" href="/roadmap">Back to roadmap</a>`;
     html += '</div>';
   }
   v.innerHTML = html; afterRender();
@@ -824,15 +833,18 @@ function renderResults(L) {
   const xp = prev === null ? L.xp + QUIZ_BONUS * score : Math.max(0, QUIZ_BONUS * (score - prev));
   const pct = Math.round(100 * score / total);
   const head = pct === 100 ? 'Perfect score!' : pct >= 75 ? 'Nice work!' : pct >= 50 ? 'Good effort' : 'Keep practising';
+  const isTest = L.type === 'test';
+  const saveLabel = isTest ? (L.quiz_attempt ? 'Update objective score' : 'Save objective score') : (L.completed ? 'Save score' : 'Complete lesson');
+  const xpLabel = isTest ? 'XP on pass' : `XP${prev !== null ? (xp ? ' (improved)' : ' (already earned)') : ''}`;
   let html = `<header class="topbar detail-bar quiz-bar" id="topbar"><button id="quiz-close" class="icon-btn" aria-label="Close">${icon('x')}</button>${dots(L)}<div class="actions">${stats()}</div></header>
   <main class="results"><div class="ring" style="--p:${pct}"><div><b>${score}/${total}</b><span>correct</span></div></div>
-    <h1>${head}</h1><p class="r-sub">${esc(L.title)}</p>
-    <div class="r-stats"><div class="rs xp">${icon('bolt')}<b>+${xp}</b><span>XP${prev !== null ? (xp ? ' (improved)' : ' (already earned)') : ''}</span></div>
+    <h1>${head}</h1><p class="r-sub">${esc(L.title)}${isTest ? ' · Objective' : ''}</p>
+    <div class="r-stats"><div class="rs xp">${icon('bolt')}<b>+${isTest ? L.xp + QUIZ_BONUS * score : xp}</b><span>${xpLabel}</span></div>
       <div class="rs streak">${icon('flame')}<b>${quiz.saved ? S.prog.streak : predictStreak()}</b><span>day streak</span></div></div>
     <ol class="r-review">${L.quiz.map((q, i) => `<li class="${quiz.picks[i] === q.answer ? 'ok' : 'bad'}">${icon(quiz.picks[i] === q.answer ? 'tick' : 'x')}<span>${inline(q.question)}</span></li>`).join('')}</ol>
     ${pct < 100 ? '<button class="linkbtn" id="quiz-retry">Retry quiz</button>' : ''}
   </main><div class="tray stack">
-    <button class="btn big primary" id="quiz-complete">${L.completed ? 'Save score' : 'Complete lesson'}</button>
+    <button class="btn big primary" id="quiz-complete">${saveLabel}</button>
     <a class="btn big ghost" href="/roadmap">Back to roadmap</a></div>`;
   v.innerHTML = html; afterRender();
 }
@@ -841,8 +853,12 @@ async function completeLesson(L, score) {
   try {
     const r = await api(`/api/lessons/${L.id}/complete`, { method: 'POST', body: JSON.stringify({ score }) });
     S.prog = r.progress; quiz = null; delete S.lessons[L.id];
-    S.justDone = L.id;
     await loadStudy();
+    if (r.awaiting_review) {
+      toast(`Objective saved · <b>${(r.quiz && r.quiz.score) ?? score}/${(r.quiz && r.quiz.total) ?? (L.quiz.length || 0)}</b> — submit Practical for Coach`);
+      return go(`/lessons/${L.id}`);
+    }
+    S.justDone = L.id;
     toast(r.first_time ? `Lesson complete · <b>+${r.xp_gained} XP</b>` : r.xp_gained ? `Score saved · <b>+${r.xp_gained} XP</b>` : 'Score saved');
     go('/roadmap');
   } catch { if (btn) btn.disabled = false; toast('Could not save. Try again.'); }

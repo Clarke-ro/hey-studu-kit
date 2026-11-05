@@ -110,5 +110,7 @@ POSTed to `SUBMISSION_WEBHOOK_URL` if set, else to the chat webhook:
   Good plan. One thing: …
   EOF
   ```
-  The student gets a push "<feedback bot>: feedback on <lesson>" unless they have that lesson open.
+  For a **Module test** (`type: test`), start the review with `**Passed**` or `**Failed**` (or `PASSED=1`/`PASSED=0`; optional `SCORE=n` = Practical 0–100; overall 40/60, pass ≥70) so the lesson completes only on pass.
+
+The student gets a push "<feedback bot>: feedback on <lesson>" always (even if that lesson is open; use NO_PUSH=1 to skip).
   `NO_PUSH=1` saves without a push; `BY=Name` changes the shown reviewer.

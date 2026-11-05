@@ -73,9 +73,14 @@ function curriculumWithStatus() {
       let ud = 0;
       for (const l of u.lessons) {
         l.n = ++n; total++;
+        const parsed = hasFile(l.id) ? parseLesson(l.id) : null;
+        l.type = isTestLesson(parsed) ? 'test' : 'lesson';
+        l.pass_mark = passMarkOf(parsed);
         l.status = p.completed[l.id] ? 'done' : l.id === s.current ? 'current' : 'locked';
-        l.available = hasFile(l.id);
-        if (p.completed[l.id]) { l.completed_at = p.completed[l.id].date; l.score = p.completed[l.id].score; l.total = p.completed[l.id].total; done++; ud++; }
+        l.available = !!parsed;
+        const qs = (p.quiz_scores || {})[l.id];
+        if (qs) { l.quiz_score = qs.score; l.quiz_total = qs.total; }
+        if (p.completed[l.id]) { l.completed_at = p.completed[l.id].date; l.score = p.completed[l.id].score; l.total = p.completed[l.id].total; l.passed = p.completed[l.id].passed; done++; ud++; }
       }
       u.done = ud; u.total = u.lessons.length;
     }
@@ -136,6 +141,61 @@ function parseLesson(id) {
   const body = raw.replace(/^```quiz[^\n]*\n([\s\S]*?)\n```[ \t]*$/gm, (_, b) => { const q = parseQuiz(b); if (q) quiz.push(q); return ''; })
     .replace(/\n{3,}/g, '\n\n').trim();
   return { id, title: meta.title || id, unit: meta.unit || null, minutes: Number(meta.minutes) || null, xp: Number(meta.xp) || 20, meta, body, quiz, submit };
+}
+
+// ---------- module tests ----------
+// Frontmatter type: test (+ optional pass_mark: 70). A module = one curriculum unit; test is its last lesson.
+// Objective = ```quiz (auto-scored); Practical = ```submit graded by Coach (0–100).
+// Overall = 40% objective + 60% practical; pass when Coach marks passed (≥ pass_mark, default 70).
+// Until passed, the lesson stays incomplete so the next unit stays locked on the path.
+function isTestLesson(parsed) {
+  return !!(parsed && parsed.meta && String(parsed.meta.type || '').toLowerCase() === 'test');
+}
+function passMarkOf(parsed) {
+  const n = parsed && parsed.meta && parsed.meta.pass_mark != null ? Number(parsed.meta.pass_mark) : NaN;
+  return Number.isFinite(n) ? n : (isTestLesson(parsed) ? 70 : null);
+}
+/** Resolve pass/fail from feedback body. Explicit passed bool wins; else first line **Passed** / **Failed**. */
+function reviewVerdict(body, text) {
+  if (body && typeof body.passed === 'boolean') return body.passed;
+  const head = String(text || '').replace(/^\uFEFF/, '').trim().split(/\n/, 1)[0] || '';
+  if (/^\*\*\s*passed\s*\*\*/i.test(head) || /^#{1,3}\s*passed\b/i.test(head)) return true;
+  if (/^\*\*\s*failed\s*\*\*/i.test(head) || /^#{1,3}\s*failed\b/i.test(head)) return false;
+  return null;
+}
+async function applyReviewProgress(lessonId, { passed, coachScore } = {}) {
+  const parsed = parseLesson(lessonId);
+  if (!isTestLesson(parsed)) return null;
+  if (passed !== true && passed !== false) return { test: true, passed: null };
+  const cur = loadCurriculum();
+  const p = loadProgress();
+  p.quiz_scores ||= {};
+  if (passed !== true) {
+    p.quiz_scores[lessonId] = { ...(p.quiz_scores[lessonId] || {}), failed_at: new Date().toISOString(), coach_score: coachScore };
+    if (!p.activity_days.includes(dayKey())) p.activity_days.push(dayKey());
+    const s = await saveProgress(p, cur);
+    return { test: true, passed: false, progress: s };
+  }
+  const prev = p.completed[lessonId];
+  if (prev && prev.passed) {
+    if (coachScore != null) { prev.coach_score = coachScore; prev.last_at = new Date().toISOString(); await saveProgress(p, cur); }
+    return { test: true, passed: true, already: true, progress: summary(p, cur) };
+  }
+  const quiz = p.quiz_scores[lessonId] || {};
+  const qScore = Number.isFinite(quiz.score) ? quiz.score : 0;
+  const qTotal = Number.isFinite(quiz.total) ? quiz.total : ((parsed.quiz && parsed.quiz.length) || 0);
+  const objPct = qTotal > 0 ? Math.round((100 * qScore) / qTotal) : 0;
+  const pract = (coachScore != null && Number.isFinite(Number(coachScore))) ? Number(coachScore) : null;
+  const overall = pract != null ? Math.round(0.4 * objPct + 0.6 * pract) : null;
+  const base = (parsed && parsed.xp) || 20;
+  const gained = prev ? 0 : (base + QUIZ_BONUS * qScore);
+  p.completed[lessonId] = {
+    date: dayKey(), at: new Date().toISOString(), score: qScore, total: qTotal, xp: gained || (prev && prev.xp) || base,
+    passed: true, coach_score: coachScore, objective_pct: objPct, overall, pass_mark: passMarkOf(parsed),
+  };
+  if (!p.activity_days.includes(dayKey())) p.activity_days.push(dayKey());
+  const s = await saveProgress(p, cur);
+  return { test: true, passed: true, first_time: !prev, xp_gained: gained, progress: s };
 }
 
 // ---------- opportunities.md ----------
@@ -211,12 +271,17 @@ module.exports = function mount(app) {
     if (!l && !parsed) return res.status(404).json({ error: 'not found' });
     const unit = cur.months.flatMap(m => m.units.map(u => ({ ...u, month: m }))).find(u => u.lessons.some(x => x.id === req.params.id));
     const flat = flatLessons(cur), idx = flat.findIndex(x => x.id === req.params.id);
+    const p = loadProgress();
+    const qs = (p.quiz_scores || {})[req.params.id] || null;
+    const test = isTestLesson(parsed);
     res.set('Cache-Control', 'no-store').json({
       id: req.params.id, title: (parsed && parsed.meta.title) || (l && l.title), minutes: (parsed && parsed.minutes) || (l && l.minutes),
       xp: (parsed && parsed.xp) || 20, status: l ? l.status : 'locked', n: l ? l.n : null, available: !!parsed,
+      type: test ? 'test' : 'lesson', pass_mark: passMarkOf(parsed),
       unit: unit ? { id: unit.id, title: unit.title, month: unit.month.id, month_title: unit.month.title, color: unit.month.color } : null,
       body: parsed ? parsed.body : null, quiz: parsed ? parsed.quiz : [], submit: parsed ? parsed.submit : null,
-      completed: l && l.status === 'done' ? { date: l.completed_at, score: l.score, total: l.total } : null,
+      quiz_attempt: qs ? { score: qs.score, total: qs.total, at: qs.at } : null,
+      completed: l && l.status === 'done' ? { date: l.completed_at, score: l.score, total: l.total, passed: l.passed } : null,
       next: idx >= 0 && flat[idx + 1] ? { id: flat[idx + 1].id, title: flat[idx + 1].title } : null,
     });
   });
@@ -228,6 +293,16 @@ module.exports = function mount(app) {
     const total = parsed ? parsed.quiz.length : 0;
     const score = Math.max(0, Math.min(total, parseInt(req.body && req.body.score, 10) || 0));
     const p = loadProgress();
+    // Module tests: save objective quiz score only; Coach's pass marks the lesson complete.
+    if (isTestLesson(parsed)) {
+      p.quiz_scores ||= {};
+      const prevQ = p.quiz_scores[l.id] || {};
+      const best = Math.max(score, prevQ.score || 0);
+      p.quiz_scores[l.id] = { score: best, total, at: new Date().toISOString() };
+      if (!p.activity_days.includes(dayKey())) p.activity_days.push(dayKey());
+      const s = await saveProgress(p, cur);
+      return res.json({ ok: true, xp_gained: 0, first_time: false, awaiting_review: true, quiz: p.quiz_scores[l.id], progress: s });
+    }
     const prev = p.completed[l.id];
     const base = (parsed && parsed.xp) || 20;
     let gained;
@@ -256,3 +331,6 @@ module.exports.parseLesson = parseLesson;
 module.exports.summary = summary;
 module.exports.loadCurriculum = loadCurriculum;
 module.exports.flatLessons = flatLessons;
+module.exports.isTestLesson = isTestLesson;
+module.exports.reviewVerdict = reviewVerdict;
+module.exports.applyReviewProgress = applyReviewProgress;

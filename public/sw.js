@@ -1,4 +1,4 @@
-const CACHE = 'hey-studu-v1';
+const CACHE = 'hey-studu-v2';
 const SHELL = ['/', '/style.css', '/md.js', '/app.js', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/badge-96.png', '/icons/apple-touch-icon.png'];
 
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
@@ -41,9 +41,11 @@ self.addEventListener('push', (e) => {
   const url = d.id ? `/m/${d.id}` : (d.url || '/');
   e.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-    // quiet_path: the screen this push is about (/chat for chat bot replies, /lessons/<id> for lesson feedback).
-    // If that screen is visible right now, skip the banner; the app refreshes itself.
-    const quiet = d.quiet_path || (d.tag === 'chat' ? '/chat' : null);
+    // quiet_path: the screen this push is about (/chat for chat bot replies).
+    // Review pushes (tag sub-*) never quiet — feedback always shows a banner, even on that lesson.
+    // Chat still quiets when /chat is visible.
+    const isReview = typeof d.tag === 'string' && d.tag.startsWith('sub-');
+    const quiet = isReview ? null : (d.quiet_path || (d.tag === 'chat' ? '/chat' : null));
     const chatOpen = !!quiet && (await Promise.all(wins.filter(c => c.focused || c.visibilityState === 'visible').map(askRoute)))
       .some(r => r && r.visible && r.path.replace(/\/$/, '') === quiet);
     wins.forEach(c => c.postMessage({ type: 'refresh' })); // app refreshes chat + badge
