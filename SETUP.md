@@ -102,8 +102,11 @@ not enabled yet (on iPhone, make sure the app was opened from the home screen ic
 
 ## 8. Free-tier caveats
 - **Render free sleeps after 15 min without traffic.** The next visit or bot call waits **30-60 s** while it wakes
-  (cold start). `start-pinger.sh` (run by `deploy.sh`) GETs `/healthz` every 10 minutes, 24/7, to keep the app
-  awake. Box scripts also retry connect failures and HTTP 502/503/504 for ~90 s so a cold start does not drop a
+  (cold start). To keep it awake 24/7, the student creates a free UptimeRobot account
+  (https://dashboard.uptimerobot.com/sign-up) and adds an HTTP(s) monitor for `<app-url>/healthz` at the default
+  5-minute interval. This is the main keep-awake: it runs on UptimeRobot's servers, so it keeps working when the
+  bot computer pauses. `start-pinger.sh` (run by `deploy.sh`) is only a backup, because the bot computer pauses when
+  idle and its pings stop. Box scripts also retry connect failures and HTTP 502/503/504 for ~90 s so a cold start does not drop a
   notification. Free Render gives **750 shared instance hours/month**; 24/7 uses ~744, so keep other free Render
   apps asleep (or on a different account) or you will run out mid-month.
 - **Neon free** scales to zero when idle (wake-up takes under a second) and holds 0.5 GB. Uploads are capped at
